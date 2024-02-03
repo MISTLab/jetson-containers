@@ -107,9 +107,10 @@ class RivaASR(Plugin):
                         score = result.alternatives[0].confidence
                         if score >= self.confidence_threshold:
                             logging.debug(f"submitting ASR transcript (confidence={score:.3f}) -> '{transcript}'")
-                            self.output(transcript, RivaASR.OutputFinal)
+                            # self.output(transcript, RivaASR.OutputFinal)
                         else:
                             logging.warning(f"dropping ASR transcript (confidence={score:.3f} < {self.confidence_threshold:.3f}) -> '{transcript}'")
+                        self.output(transcript, RivaASR.OutputFinal)  # TODO: check that this works
                     else:
                         self.output(transcript, RivaASR.OutputPartial)
         

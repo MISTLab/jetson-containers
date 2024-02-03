@@ -2,6 +2,7 @@
 
 from .callback import Callback
 from .chat_query import ChatQuery
+from .laika_query import LaikaQuery
 from .print_stream import PrintStream
 from .user_prompt import UserPrompt
 from .rate_limit import RateLimit

@@ -27,4 +27,7 @@ COPY web web
 
 ENV PYTHONPATH=${PYTHONPATH}:/opt/local_llm
 
+RUN apt-get update
+RUN apt-get install pulseaudio -y
+
 WORKDIR /
