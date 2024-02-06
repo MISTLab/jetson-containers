@@ -5,6 +5,11 @@ from local_llm import Plugin, LocalLM, ChatHistory
 from local_llm.utils import ImageTypes, print_table
 
 import re
+import cv2
+
+
+ROBOT_NAME = ["rebecca", "rebeca", "rebbeca", "rebbecca"]
+CAMERA_IDX = 4
 
 
 def triggers_str(text):
@@ -22,29 +27,35 @@ def triggers_str(text):
 
     # Hey Laika (Trigger 1)
 
-    subs = ["hey", "hello", "hi", "okay", "ok"]
-    found = False
-    for sub in subs:
-        if t.startswith(sub):
-            t = t[len(sub):]
-            found = True
-            break
+    # subs = ["hey", "hello", "hi", "okay", "ok"]
+    # found = False
+    # for sub in subs:
+    #     if t.startswith(sub):
+    #         t = t[len(sub):]
+    #         found = True
+    #         break
+
+    if ".jpg" in text:
+        return 3, text
+
+    found = True
     if found:
         found = False
-        subs = ["lyka", "like", "lika", "laika", "spot", "spud", "scott", "robotdog", "robodog", "robots", "robot", "robert"]
+        subs = ROBOT_NAME
         for sub in subs:
-            if t.startswith(sub):
-                start = re.search(sub, text.lower()).span()[1]
+            # if t.startswith(sub):
+            if sub in t:
+                # start = re.search(sub, text.lower()).span()[1]
                 found = True
                 break
         if found:
             res = 1
-    text = text[start:]
+    # text = text[start:]
 
-    while len(text) and not text[0].isalpha():
-        text = text[1:]
-    if len(text) > 1:
-        text = text[0:1].upper() + text[1:]
+    # while len(text) and not text[0].isalpha():
+    #     text = text[1:]
+    # if len(text) > 1:
+    #     text = text[0:1].upper() + text[1:]
     # print(f"DEBUG: modded input: {text}")
 
     if res == 1:
@@ -138,6 +149,9 @@ class LaikaQuery(Plugin):
 
         self.listening = True
 
+        self.cam = cv2.VideoCapture(CAMERA_IDX)
+        ret, img = self.cam.read()
+
         # warmup_query = '2+2 is '
         # logging.debug(f"Warming up LLM with query '{warmup_query}'")
         # logging.debug(f"Warmup response:  '{self.model.generate(warmup_query, streaming=False)}'")
@@ -171,6 +185,7 @@ class LaikaQuery(Plugin):
                 self.chat_history.reset()
                 return
 
+        trig = 0
         if self.listening:
             trig, input = triggers_str(text=input)
             if trig == 0:  # no pattern
@@ -183,18 +198,30 @@ class LaikaQuery(Plugin):
 
         # add prompt to chat history
         if isinstance(input, str) or isinstance(input, dict) or isinstance(input, ImageTypes):
-            if isinstance(input, str):
+            if isinstance(input, str) and trig == 1:
                 # modify the prompt
                 print(f"DEBUG: original input: {input}")
-                input = input + " (IMPORTANT: Keep your answer below 20 words, and do NOT refer to this rule in your answer.)"
+                input = input  # + f" (IMPORTANT CONTEXT: Your name is '{ROBOT_NAME[0]}')"
             print(f"DEBUG: input: {input}")
+            ret, shot = self.cam.read()
+            shot = cv2.cvtColor(shot, cv2.COLOR_BGR2RGB)
+            if not ret:
+                print(f"DEBUG: ret is False, skipping image")
+            else:
+                # self.chat_history.reset(add_system_prompt=True)  # needed for llava but bugged
+                self.chat_history.append(role='user', msg=shot)
             self.chat_history.append(role='user', msg=input)
             chat_history = self.chat_history
         elif isinstance(input, ChatHistory):
+            print(f"DEBUG: ChatHistory input: {input}")
             chat_history = input
         else:
             raise TypeError(
                 f"LLMQuery plugin expects inputs of type str, dict, image, or ChatHistory (was {type(input)})")
+
+        print(f"DEBUG: chat_history:")
+        for entry in chat_history:
+            print(entry)
 
         # images should be followed by text prompts
         if 'image' in chat_history[-1] and 'text' not in chat_history[-1]:
